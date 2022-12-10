@@ -15,49 +15,15 @@ import java.util.*;
 
 public class HelloApplication extends Application {
 
-    int SCREEN_WIDTH = 400;
+    int SCREEN_WIDTH = 720;
     int SCREEN_HEIGHT = 720;
-    public static int NUM_PARTICLES = 20;
+    public static int NUM_PARTICLES = 100;
     public static int PARTICLE_RADIUS = 1;
-    private List<Particle> particles = new ArrayList<>();
-    public double [] vectorsX;
-    public static double GRAVITATIONAL_FORCE = 0.02;
-    public static double PARTICLE_WEIGHT = 0.000018;
-    public static double MOMENTUM_LOSS =   0.000000005;
-    public double [] vectorsY;
-
-    //tutorial
-
-    public static double MAX_PARTICLES = 125;
-    public static double DOMAIN_WIDTH = 40;
-    public static double DOMAIN_HEIGHT = 80;
-
-    public static double PARTICLE_MASS = 1;
-    public static double ISOTROPIC_EXPONENT = 20;
-    public static double BASE_DENSITY = 1;
-    public static double SMOOTHING_LENGTH = 5;
-    public static double DYNAMIC_VISCOSITY = 0.5;
-    public static double DAMPING_COEFFICIENT = - 0.9;
-    public static double NORMALIZATION_DENSITY = (315 * PARTICLE_MASS) / (Math.pow((64 * Math.PI * SMOOTHING_LENGTH),9));
-    public static double NORMALIZATION_PRESSURE_FORCE = (45 * DYNAMIC_VISCOSITY * PARTICLE_MASS) / (Math.pow((Math.PI * SMOOTHING_LENGTH),6));
-    public static double NORMALIZATION_VISCOUS_FORCE = (45 * PARTICLE_MASS) / (Math.pow((Math.PI * SMOOTHING_LENGTH),6));
-
-    public static double [] CONSTANT_FORCE = new double[2];
-
-    public static double TIME_STEP_LENGTH = 0.01;
-    public static double N_TIME_STEPS = 2500;
-    public static double ADD_PARTICLES_EVERY = 0;
-
-    public static double [] FIGURE_SIZE = new double[2];
-    public static double PLOT_EVERY = 6;
-    public static double SCATTER_DOT_SIZE = 2000;
+    private List<ParticleDrawn> particles = new ArrayList<>();
 
     public static double [][] positions = new double[NUM_PARTICLES][2];
-    public static double [] forces = new double[NUM_PARTICLES];
     public static double [] densities = new double[NUM_PARTICLES];
 
-
-    public KdTree neighbours;
     public static List<KdTree.Node> particleCoordinates = new ArrayList<>();
     public static KdTree tree;
 
@@ -66,17 +32,31 @@ public class HelloApplication extends Application {
 
     // ------------------------------------------------- //
 
+    double smoothingLength = 2*PARTICLE_RADIUS;
+    double mass = 0.15;
+    double stiffness = 100;
+    double viscosity = 0.0001;
+    double restDensity = 0.001; // rest density of the fluid
+    double gasConstant = 0.0000001; // gas constant of the fluid
+    double [] zeros;
+    double timeStep = 8;
 
+    // Define the time step for the simulation
+    double dt = 0.001;
+
+    private static final int MIN_X = 0;
+    private static final int MIN_Y = 0;
+    private double MAX_X = SCREEN_WIDTH;
+    private double MAX_Y = SCREEN_HEIGHT;
+
+    // The gravitational force acting on the vectors
+    private static final double GRAVITY = 9.8;
+
+    // The coefficient of restitution for the vectors
+    private static final double COR = 0.8;
 
     @Override
     public void start(Stage stage) throws IOException {
-
-        CONSTANT_FORCE[0] = 0.0;
-        CONSTANT_FORCE[1] = -0.1;
-
-        FIGURE_SIZE[0] = 4;
-        FIGURE_SIZE[1] = 6;
-
         Scene scene = new Scene(createContent());
 
         stage.setTitle("Fluid Dynamics");
@@ -90,56 +70,70 @@ public class HelloApplication extends Application {
     }
 
     private Parent createContent(){
+
+        zeros = new double[2];
+        zeros[0] = 0;
+        zeros[1] = 0;
+
         Pane root = new Pane();
         root.setPrefSize(SCREEN_WIDTH,SCREEN_HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
-        for (int i = 0; i < densities.length; i++) {
-            densities[i] = 0;
-        }
 
         for (int i = 0; i < NUM_PARTICLES; i++) {
-            var p = new Particle();
+            var p = new ParticleDrawn();
             particles.add(p);
             root.getChildren().add(p);
         }
-        for (int i = 0; i < NUM_PARTICLES/50; i++) {
-            for (int j = 0; j < 50; j++) {
-                Particle particle = particles.get(i*10+j);
-                particle.setTranslateX(i*4+PARTICLE_RADIUS*2+20);
-                particle.setTranslateY(j*4+PARTICLE_RADIUS*2+10);
-
-                positions[i*50+j][0] = i*4+PARTICLE_RADIUS*2+20;
-                positions[i*50+j][1] = i*4+PARTICLE_RADIUS*2+10;
 
 
+        int x = 10;
+        int y = 10;
+        for (int i = 0; i < NUM_PARTICLES; i++) {
+            ParticleDrawn particle = particles.get(i);
+            int num = 4;
+
+            particle.setTranslateX(x);
+            particle.setTranslateY(y);
+            positions[i][0] = x;
+            positions[i][1] = y;
+
+            if (x >= MAX_X-10){
+                x = 0;
+                y += num;
             }
+            x+=num;
+
+                /*
+                particle.setTranslateX(10);
+                particle.setTranslateY(10);
+
+                positions[i*50+j][0] = 10;
+                positions[i*50+j][1] = 10;
+
+                 */
         }
 
         for (int i = 0; i < positions.length; i++) {
-            particleCoordinates.add(new KdTree.Node(new double[] {positions[i][0],positions[i][1]}));
+            KdTree.Node newNode = new KdTree.Node(new double[] {positions[i][0],positions[i][1]});
+            double [] velocity = {1,-1};
+
+            newNode.setVelocity(velocity);
+            newNode.setDensity(0.1);
+            newNode.id = i;
+            particleCoordinates.add(newNode);
+            newNode.show();
+
         }
 
         tree = new KdTree(2,particleCoordinates);
 
 
-        /*System.out.println(neighbours.size());
-        for (Map.Entry<Double, ArrayList<int []>> entry : neighbours.entrySet()) {
-            for (int i = 0; i < entry.getValue().size(); i++) {
-                System.out.println("Key: " + entry.getKey());
-                for (int j = 0; j < entry.getValue().get(i).length ; j++) {
-                    System.out.println("Id " + j + ": " + entry.getValue().get(i)[j]);
-                }
-            }
-
-        }
-
-         */
-
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
                 onUpdate();
+
             }
         };
         timer.start();
@@ -147,8 +141,8 @@ public class HelloApplication extends Application {
         return root;
     }
 
-    private static class Particle extends Parent {
-        Particle(){
+    private static class ParticleDrawn extends Parent {
+        ParticleDrawn(){
             var shape = new Circle(PARTICLE_RADIUS*2);
             shape.setFill(Color.LIGHTSKYBLUE);
 
@@ -156,126 +150,253 @@ public class HelloApplication extends Application {
         }
     }
 
+
+    double calculateKernel(double r,double smoothingLength) {
+        if (r <= 0) return 0;
+        double sigma = smoothingLength; // kernel radius
+        double q = r / sigma;
+        if (q <= 1) {
+            return 15.0 / (7.0 * Math.PI * sigma * sigma) * (1.0 - 1.5 * q * q + 0.75 * q * q * q);
+        } else if (q <= 2) {
+            return 15.0 / (7.0 * Math.PI * sigma * sigma) * (0.25 * (2.0 - q) * (2.0 - q) * (2.0 - q));
+        } else {
+            return 0.1;
+        }
+    }
+
+    public void calculateDensity(KdTree.Node currParticle){
+        ArrayList collisions = tree.findCollisions(currParticle, smoothingLength);
+        double [] pl = currParticle.getCoords_();
+        double density = 0;
+        //System.out.println("before density");
+        //currParticle.show();
+        for (int i = 0; i < collisions.size(); i++) {
+            KdTree.Node neighbour = (KdTree.Node) collisions.get(i);
+            double [] c = neighbour.getCoords_();
+            double distance = getDistance(pl[0],pl[1],c[0],c[1]);
+            double kernelValue = calculateKernel(distance,smoothingLength);
+            //System.out.println("kernel " + kernelValue);
+            //System.out.println("particle density " + currParticle.getDensity());
+            //System.out.println("smoothingLen " + smoothingLength);
+            density+=mass*kernelValue;
+            //System.out.println("step " + i +" -> density: "+density);
+
+        }
+        currParticle.setDensity(density);
+        //System.out.println("final density" + density);
+        //System.out.println("after density");
+        //currParticle.show();
+
+
+
+    }
+
+    public void calculatePressure(KdTree.Node currParticle){
+        double pressure = gasConstant * (currParticle.getDensity() - restDensity);
+        currParticle.setPressure(pressure);
+    }
+
+    public double[] normalize(double[] vector){
+        double magnitude = Math.sqrt(vector[0]*vector[0] + vector[1]*vector[1]);
+        double[] normalizedVector = {vector[0]/magnitude, vector[1]/magnitude};
+
+
+
+        return normalizedVector;
+    }
+
+    public double [] sub(double [] vector,double[] subtract){
+        double [] subbedVector = new double[2];
+
+        subbedVector[0] = vector[0]-subtract[0];
+        subbedVector[1] = vector[1]-subtract[1];
+
+        return subbedVector;
+    }
+    public double [] add(double [] vector,double[] add){
+        double [] addedVector = new double[2];
+
+        addedVector[0] = vector[0]+add[0];
+        addedVector[1] = vector[1]+add[1];
+
+        return addedVector;
+    }
+
+    public double [] mul(double [] vector1,double scalar){
+        double [] mulVector = new double[2];
+
+        mulVector[0] = vector1[0]*scalar;
+        mulVector[1] = vector1[1]*scalar;
+
+        return mulVector;
+    }
+
+    public double dot(double [] vector1,double [] vector2){
+
+        double dotProduct = (vector1[0]* vector2[0]) + (vector1[1]* vector2[1]);
+
+        return dotProduct;
+    }
+
+    public void calculateForces(KdTree.Node currParticle) {
+        double[] velocity = currParticle.getVelocity();
+        double[] pressureVelocity = {0,0};
+        double[] viscousVelocity = {0,0};
+        /*
+        System.out.println("before forces");
+        currParticle.show();
+        System.out.println("");
+
+         */
+        ArrayList collisions = tree.findCollisions(currParticle, smoothingLength);
+        double [] pl = currParticle.getCoords_();
+        for (int i = 0; i < collisions.size(); i++) {
+            KdTree.Node neighbour = (KdTree.Node) collisions.get(i);
+            double [] c = neighbour.getCoords_();
+            double distance = getDistance(pl[0],pl[1],c[0],c[1]);
+            if (distance == 0){
+                distance = 0.01;
+            }
+            double kernelValue = calculateKernel(distance,smoothingLength);
+            double P = currParticle.getPressure() + neighbour.getPressure();
+            double mu = 2*viscosity;
+
+            double [] rhat = normalize(sub(currParticle.getCoords_(),neighbour.getCoords_()));
+
+            pressureVelocity = add(pressureVelocity,mul(rhat,(P*kernelValue)));
+
+            double[] v = sub(currParticle.getVelocity(), neighbour.getVelocity());
+            viscousVelocity = add(viscousVelocity,mul(rhat,(-mu*(dot(rhat,v)*kernelValue))));
+
+            /*
+            System.out.println("v: " + v[0]+", "+v[1]);
+            System.out.println("rhat: " + rhat[0]+", "+rhat[1]);
+            System.out.println("mu: " + mu);
+            System.out.println("P: " + P);
+            System.out.println("kernelValue: " + kernelValue);
+            System.out.println("pressureVelocity: " + pressureVelocity[0]+", "+pressureVelocity[1]);
+            System.out.println("addition to pressureVelocity: " + mul(rhat,(P*kernelValue))[0]+", "+mul(rhat,(P*kernelValue))[1]);
+            System.out.println("-----------------------------------------------------");
+
+             */
+
+
+
+
+
+
+        }
+        //System.out.println("velocity: "+ velocity[0] + " " + velocity[1]);
+        double gforce = 0.0000098;
+        double [] force = sub(add(pressureVelocity,viscousVelocity), new double[]{0, gforce*timeStep});
+
+        System.out.println("Force: "+force[0] + " " + force[1]);
+
+        currParticle.setVelocity(add(currParticle.getVelocity(),mul(force,(timeStep/mass))));
+        currParticle.setCoords_(add(currParticle.getCoords_(), mul(currParticle.getVelocity(), timeStep)));
+
+        /*
+        System.out.println("after forces");
+        currParticle.show();
+        System.out.println();
+
+         */
+    }
+
+    // dodaj da se odbije od zida
+    public void checkIfBounced(KdTree.Node currparticle){
+        double []coords = currparticle.getCoords_();
+        double []velocity = currparticle.getVelocity();
+        if (coords[0] <= MIN_X){
+
+            System.out.println("bounced off of left wall");
+            double [] newVelocity = {-velocity[0]*COR,velocity[1]*COR};
+            currparticle.setVelocity(newVelocity);
+            currparticle.setCoords_(new double[] {0, currparticle.getCoords_()[1]});
+        }
+        if (coords[0] >= MAX_X){
+            System.out.println("bounced off of right wall");
+
+            double [] newVelocity = {-velocity[0]*COR,velocity[1]*COR};
+            currparticle.setVelocity(newVelocity);
+            currparticle.setCoords_(new double[] {MAX_X, currparticle.getCoords_()[1]});
+        }
+        if (coords[1] <= 0){
+            System.out.println("bounced off of floor");
+            //double [] newVelocity = {velocity[0],-velocity[1]};
+            double [] newVelocity = {velocity[0]*COR,-velocity[1]*COR};
+            currparticle.setVelocity(newVelocity);
+            currparticle.setCoords_(new double[] { currparticle.getCoords_()[0],0});
+        }
+        if (coords[1] >= MAX_Y){
+
+            System.out.println("bounced off of celling");
+            double [] newVelocity = {velocity[0]*COR,-velocity[1]*COR};
+            //double [] newVelocity = {velocity[0],-velocity[1]};
+            currparticle.setVelocity(newVelocity);
+
+            currparticle.setCoords_(new double[] { currparticle.getCoords_()[0],MAX_Y});
+        }
+    }
+
+    public void updateParticles() {
+
+        for (KdTree.Node p : particleCoordinates) {
+
+
+            particles.get(p.id).setTranslateX(p.getCoords_()[0]);
+            particles.get(p.id).setTranslateY(Math.abs(p.getCoords_()[1]-MAX_Y));
+            p.show();
+
+            /*
+            particles.get(p.id).setTranslateX(p.getCoords_()[0]);
+            particles.get(p.id).setTranslateY(p.getCoords_()[1]);
+
+             */
+
+        }
+    }
+
     private void onUpdate(){
 
         KdTree.Node nearest;
 
-        /*for (int i = 0; i < particles.size(); i++) {
-
-
-
-            if (ADD_PARTICLES_EVERY == 1){
-                if (positions[i][1]+vectorsY[i] > SCREEN_HEIGHT-2*PARTICLE_RADIUS){
-                    particles.get(i).setTranslateY(SCREEN_HEIGHT-2*PARTICLE_RADIUS);
-                }
-                else{
-                    particles.get(i).setTranslateY(positions[i][1]+vectorsY[i]);
-                }
-
-                particles.get(i).setTranslateX(positions[i][0]+vectorsX[i]);
-            }
-
-
-
-            if (positions[i][1]+vectorsY[i] > SCREEN_HEIGHT-2*PARTICLE_RADIUS){
-                positions[i][1] = SCREEN_HEIGHT-2*PARTICLE_RADIUS;
-            }
-            else{
-                positions[i][1] = positions[i][1]+vectorsY[i];
-            }
-
-            positions[i][0] = positions[i][0]+vectorsX[i];
-
-            double currParticle = positions[i][0];
-            double currParticleY = positions[i][1];
-            nearest = new KdTree.Node(currParticle,currParticleY);
-            ArrayList collisions = tree.findCollisions(nearest,PARTICLE_RADIUS);
-
-            System.out.println(collisions);
-
-            //KdTree.Node nearestParticle = tree.findNearest(nearest);
-            //System.out.println("Particle at: "+ "("+currParticle+", "+currParticleY+")"+ " is nearest to the particle with id " + "" + " at" +nearestParticle);
-
-
-            for (int j = 0; j < particles.size(); j++) {
-                double otherParticle = positions[j][0];
-                double otherParticleY = positions[j][1];
-                if (i != j){
-                    if (currParticleY >= otherParticleY+PARTICLE_RADIUS & currParticle <=  otherParticle+PARTICLE_RADIUS){
-
-                        if (currParticle <=  otherParticle+PARTICLE_RADIUS){
-                            vectorsY[i] = vectorsY[i]-(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsY[j] = vectorsY[j]+(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsX[i] = vectorsX[i]-(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsX[j] =vectorsX[j]+(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                        }
-                        else if (currParticle >=  otherParticle+PARTICLE_RADIUS){
-                            vectorsY[i] = vectorsY[i]+(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsY[j] = vectorsY[j]-(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsX[i] = vectorsX[i]+(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                            vectorsX[j] = vectorsX[j]-(PARTICLE_WEIGHT-MOMENTUM_LOSS);
-                        }
-                    }
-
-                }
-            }
-
-
-            if (currParticle <= PARTICLE_RADIUS){
-                vectorsX[i] = -(vectorsX[i]-MOMENTUM_LOSS);
-            }
-            else if (currParticle >= SCREEN_WIDTH-PARTICLE_RADIUS){
-                vectorsX[i] = -(vectorsX[i]-MOMENTUM_LOSS);
-            }
-
-
-
-
-
-
-            if (currParticleY >= SCREEN_HEIGHT-PARTICLE_RADIUS*2){
-                vectorsY[i] = -(vectorsY[i]-MOMENTUM_LOSS)/1.5;
-            }
-
-            if (vectorsY[i] > 0){
-                vectorsY[i]+=GRAVITATIONAL_FORCE;
-            }
-            else if (vectorsY[i] < 0){
-                vectorsY[i]+=GRAVITATIONAL_FORCE;
-            }
-            //System.out.println("Particle X: "+ currParticle +" Particle Y:"+currParticleY +" Vector:" + vectorsY[i]);
+        for (int i = 0; i < particles.size(); i++) {
+            checkIfBounced(particleCoordinates.get(i));
         }
 
-         */
         for (int i = 0; i < particles.size(); i++) {
             KdTree.Node currParticle = particleCoordinates.get(i);
-            ArrayList collisions = tree.findCollisions(currParticle, PARTICLE_RADIUS);
-            for (int j = 0; j < collisions.size(); j++) {
-                double[] coll_sub = (double[]) collisions.get(j);
-                System.out.println(coll_sub[0]);
-                densities[j] += NORMALIZATION_DENSITY * (
-                        Math.pow(SMOOTHING_LENGTH,2) - getDistance(currParticle.coords_[0],currParticle.coords_[1],coll_sub[0],coll_sub[1])
-                        );
+            calculateDensity(currParticle);
+            if (currParticle.getDensity() == 0){
+                currParticle.setDensity(0.0001);
             }
-            System.out.println();
+            //System.out.println("in density calc "+currParticle.getVelocity()[0]+" "+currParticle.getVelocity()[1]);
         }
 
-        //particleCoordinates = new ArrayList<>();
-        for (int i = 0; i < positions.length; i++) {
-            particleCoordinates.set(i, new KdTree.Node(new double[] {positions[i][0],positions[i][1]}));
+        for (int i = 0; i < particles.size(); i++) {
+            KdTree.Node currParticle = particleCoordinates.get(i);
+            calculatePressure(currParticle);
         }
+
+        for (int i = 0; i < particles.size(); i++) {
+            KdTree.Node currParticle = particleCoordinates.get(i);
+            calculateForces(currParticle);
+            //System.out.println("in forces calc "+currParticle.getVelocity()[0]+" "+currParticle.getVelocity()[1]);
+        }
+
+
+        updateParticles();
+
 
         tree = new KdTree(2,particleCoordinates);
 
-        ADD_PARTICLES_EVERY+=1;
-        if (ADD_PARTICLES_EVERY == 2){
-            ADD_PARTICLES_EVERY = 0;
-        }
     }
 
     public static void main(String[] args) {
         launch();
     }
+
 
     public double getDistance(double particleX,double particleY,double neighbourX,double neighbourY){
         double distance = 0;

@@ -8,7 +8,7 @@ public class KdTree {
     private Node best_ = null;
     private double bestDistance_ = 0;
     private int visited_ = 0;
-    ArrayList<double[]> neighbours;
+    ArrayList<Node> neighbours;
 
     public KdTree(int dimensions, List<Node> nodes) {
         dimensions_ = dimensions;
@@ -26,9 +26,9 @@ public class KdTree {
         System.out.println(best_);
         return best_;
     }
-    public ArrayList<double[]> findCollisions(Node target, double radius){
+    public ArrayList<Node> findCollisions(Node target, double radius){
         double start = System.currentTimeMillis();
-        neighbours = new ArrayList<double[]>();
+        neighbours = new ArrayList<Node>();
         if (root_ == null)
             throw new IllegalStateException("Tree is empty!");
         Node currPosition = root_;
@@ -46,22 +46,20 @@ public class KdTree {
             }
             index = (index + 1) % dimensions_;
         }
-        recAddAllToNeighbours(currPosition);
+        recAddAllToNeighbours(currPosition, target.id);
         //System.out.println("Found where they collide in " + (System.currentTimeMillis()-start) + "miliseconds");
         return neighbours;
     }
 
-    private void recAddAllToNeighbours(Node curr){
-        double [] add = new double[3];
-        add[0] = curr.coords_[0];
-        add[1] = curr.coords_[1];
-        add[2] = curr.id;
-        neighbours.add(add);
+    private void recAddAllToNeighbours(Node curr,int id){
+        if (curr.id != id){
+        neighbours.add(curr);
+        }
         if (curr.left_ != null){
-            recAddAllToNeighbours(curr.left_);
+            recAddAllToNeighbours(curr.left_,id);
         }
         if (curr.right_ != null){
-            recAddAllToNeighbours(curr.right_);
+            recAddAllToNeighbours(curr.right_,id);
         }
     }
 
@@ -120,8 +118,12 @@ public class KdTree {
     }
 
     public static class Node {
-        public double[] coords_;
+        private double[] coords_;
         public int id;
+
+        private double [] velocity;
+        private double density;
+        private double pressure;
         private Node left_ = null;
         private Node right_ = null;
 
@@ -157,6 +159,45 @@ public class KdTree {
             }
             s.append(')');
             return s.toString() + " with id: " + id;
+        }
+        public void show(){
+            System.out.println("For particle " + this.id +" the values are:");
+            System.out.println("coordinates: ("+this.coords_[0]+", "+this.coords_[1]+")");
+            System.out.println("velocity: ("+this.velocity[0]+", "+this.velocity[1]+")");
+            System.out.println("density: "+this.density);
+            System.out.println("pressure: "+this.pressure);
+        }
+
+        public double[] getVelocity() {
+            return velocity;
+        }
+
+        public double getDensity() {
+            return density;
+        }
+
+        public void setDensity(double density) {
+            this.density = density;
+        }
+
+        public double [] getCoords_() {
+            return coords_;
+        }
+
+        public void setCoords_(double [] coords_) {
+            this.coords_ = coords_;
+        }
+
+        public double getPressure() {
+            return pressure;
+        }
+
+        public void setPressure(double pressure) {
+            this.pressure = pressure;
+        }
+
+        public void setVelocity(double[] velocity) {
+            this.velocity = velocity;
         }
     }
 }
