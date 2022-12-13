@@ -11,7 +11,7 @@ import javafx.util.Duration;
 import java.net.URL;
 import java.util.ResourceBundle;
 
-public class HelloController implements Initializable {
+public class Fluid2DController implements Initializable {
     @FXML
     private Circle welcomeText;
 

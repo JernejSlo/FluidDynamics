@@ -4,9 +4,11 @@ import java.util.*;
 
 public class KdTree {
     private int dimensions_;
+    private double radius;
     private Node root_ = null;
     private Node best_ = null;
-    private double bestDistance_ = 0;
+    private ArrayList<Node> collisions = null;
+    private double bestDistance_ = radius*radius;
     private int visited_ = 0;
     ArrayList<Node> neighbours;
 
@@ -16,17 +18,8 @@ public class KdTree {
     }
 
 
-    public Node findNearest(Node target) {
-        if (root_ == null)
-            throw new IllegalStateException("Tree is empty!");
-        best_ = null;
-        visited_ = 0;
-        bestDistance_ = 0;
-        nearest(root_, target, 0);
-        System.out.println(best_);
-        return best_;
-    }
-    public ArrayList<Node> findCollisions(Node target, double radius){
+
+    public ArrayList<Node> findCollisions2(Node target, double radius){
         double start = System.currentTimeMillis();
         neighbours = new ArrayList<Node>();
         if (root_ == null)
@@ -34,18 +27,17 @@ public class KdTree {
         Node currPosition = root_;
 
         int index = 0;
-
-        double dx = currPosition.get(index) - target.get(index);
-
-
+        double dx = currPosition.distance(target);
         while (dx > radius){
-            dx = currPosition.get(index) - target.get(index);
+            System.out.println("dx " +dx);
+            dx = currPosition.distance(target);
             currPosition = currPosition.left_;
             if (currPosition == null){
                 return neighbours;
             }
             index = (index + 1) % dimensions_;
         }
+        System.out.println("distance "+currPosition.distance(target));
         recAddAllToNeighbours(currPosition, target.id);
         //System.out.println("Found where they collide in " + (System.currentTimeMillis()-start) + "miliseconds");
         return neighbours;
@@ -63,7 +55,63 @@ public class KdTree {
         }
     }
 
+    public void displayNode(Node root){
+        if (root == null){
+            root = root_;
+        }
+        System.out.println(root);
+        System.out.println("<-  ->");
+        System.out.println(root.left_+" | "+root.right_);
+    }
 
+
+    public ArrayList<Node> findCollisions(Node target,double smoothingLength) {
+        if (root_ == null)
+            throw new IllegalStateException("Tree is empty!");
+        collisions = new ArrayList<>();
+        visited_ = 0;
+        bestDistance_ = radius*radius;
+        nearestInRadius(root_, target, 0);
+
+        System.out.println("number of collisions " + collisions.size());
+
+        for (int i = 0; i < collisions.size(); i++) {
+            if (target.id == collisions.get(i).id){
+                collisions.remove(i);
+            }
+            else {
+                System.out.println("collided with " + collisions.get(i).id);
+            }
+        }
+
+        return collisions;
+    }
+
+    private void nearestInRadius(Node root, Node target, int index) {
+        if (root == null)
+            return;
+        ++visited_;
+        double d = root.distance(target);
+        System.out.println(d);
+        if (d <= bestDistance_) {
+            System.out.println("its here");
+            collisions.add(root);
+            best_ = root;
+        }
+        nearest(root.right_, target, index);
+        nearest(root.left_, target, index);
+    }
+
+    public Node findNearest(Node target) {
+        if (root_ == null)
+            throw new IllegalStateException("Tree is empty!");
+        best_ = null;
+        visited_ = 0;
+        bestDistance_ = 0;
+        nearest(root_, target, 0);
+        System.out.println(best_);
+        return best_;
+    }
 
     private void nearest(Node root, Node target, int index) {
         if (root == null)
@@ -104,6 +152,10 @@ public class KdTree {
         node.left_ = makeTree(nodes, begin, n, index);
         node.right_ = makeTree(nodes, n + 1, end, index);
         return node;
+    }
+
+    public void setRadius(double radius) {
+        this.radius = radius;
     }
 
     private static class NodeComparator implements Comparator<Node> {

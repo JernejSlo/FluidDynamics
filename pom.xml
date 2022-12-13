@@ -61,7 +61,7 @@
                         <id>default-cli</id>
                         <configuration>
                             <mainClass>
-                                com.example.fluiddynamicsjavafx/com.example.fluiddynamicsjavafx.HelloApplication
+                                com.example.fluiddynamicsjavafx/com.example.fluiddynamicsjavafx.Fluid2D
                             </mainClass>
                         </configuration>
                     </execution>
