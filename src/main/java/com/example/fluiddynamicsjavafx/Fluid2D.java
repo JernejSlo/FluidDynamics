@@ -17,9 +17,13 @@ public class Fluid2D extends Application {
 
     int SCREEN_WIDTH = 360;
     int SCREEN_HEIGHT = 720;
+    int dam = 0;
+    boolean simulateDamBreak = true;
+
+
     public static KdTree tree;
     public static int NUM_PARTICLES = 1000;
-    public static int PARTICLE_RADIUS = 2;
+    public static int PARTICLE_RADIUS = 3;
     private List<ParticleDrawn> particles = new ArrayList<>();
 
     public static double [][] positions = new double[NUM_PARTICLES][2];
@@ -27,7 +31,7 @@ public class Fluid2D extends Application {
 
     public static List<KdTree.Node> particleCoordinates = new ArrayList<>();
 
-    double smoothingLength = 5;
+    double smoothingLength = 2.5*PARTICLE_RADIUS;
 
 
 
@@ -92,29 +96,51 @@ public class Fluid2D extends Application {
         }
 
 
-        double x = MAX_X/4;
-        double y = 200;
+        double x = 0;
+        double y = 0;
+        if (simulateDamBreak){
         for (int i = 0; i < NUM_PARTICLES; i++) {
             ParticleDrawn particle = particles.get(i);
-            double num = 5;
+            double num = smoothingLength;
 
             particle.setTranslateX(x);
             particle.setTranslateY(y);
             positions[i][0] = x; //+Math.random()*1;
             positions[i][1] = y;
 
-            if (x >= (MAX_X*3)/4){
-                x = MAX_X/4;
-                y -= num;
+            if (x >= (MAX_X)/2){
+                x = 0;
+                y += num;
             }
 
-            x+= num;
+            x+= num/2;
 
+        }}
+        else {
+            x = MAX_X/4;
+            y = MAX_Y/2;
+            for (int i = 0; i < NUM_PARTICLES; i++) {
+                ParticleDrawn particle = particles.get(i);
+                double num = smoothingLength;
+
+                particle.setTranslateX(x);
+                particle.setTranslateY(y);
+                positions[i][0] = x; //+Math.random()*1;
+                positions[i][1] = y;
+
+                if (x >= (3*MAX_X)/4){
+                    x = MAX_X/4;
+                    y += num;
+                }
+
+                x+= num/2;
+
+            }
         }
 
         for (int i = 0; i < positions.length; i++) {
             KdTree.Node newNode = new KdTree.Node(new double[] {positions[i][0],positions[i][1]});
-            double [] velocity = {10,-5};
+            double [] velocity = {0.1,0};
 
             newNode.setVelocity(velocity);
             newNode.setDensity(BASE_DENSITY);
@@ -306,6 +332,17 @@ public class Fluid2D extends Application {
 
     }
 
+    public void damBreak(KdTree.Node currparticle){
+        double []coords = currparticle.getCoords_();
+        double []velocity = currparticle.getVelocity();
+        if (coords[0] >= MAX_X/2+smoothingLength){
+
+            double [] newVelocity = {-velocity[0]*COR,velocity[1]};
+            currparticle.setVelocity(newVelocity);
+            currparticle.setCoords_(new double[] {MAX_X/2+smoothingLength, currparticle.getCoords_()[1]});
+        }
+    }
+
     // dodaj da se odbije od zida
     public void checkIfBounced(KdTree.Node currparticle){
         double []coords = currparticle.getCoords_();
@@ -357,7 +394,19 @@ public class Fluid2D extends Application {
 
 
         for (int i = 0; i < particles.size(); i++) {
+            if (simulateDamBreak){
+                if (dam < 1000){
+
+                    damBreak(particleCoordinates.get(i));
+                }
+            }
+
+
             checkIfBounced(particleCoordinates.get(i));
+        }
+        if (simulateDamBreak){
+            dam+=1;
+            System.out.println(dam);
         }
 
         for (int i = 0; i < particles.size(); i++) {
