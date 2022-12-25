@@ -18,8 +18,33 @@ public class KdTree {
     }
 
 
+    public ArrayList<Node> rangeSearch(Node base, double radius) {
+        // Create a list to store the found nodes
+        ArrayList<Node> range = new ArrayList<>();
 
-    public ArrayList<Node> findCollisions2(Node target, double radius){
+        // Call the recursive rangeSearch helper method
+        rangeSearch(root_, base, radius, range);
+
+        return range;
+    }
+
+    private void rangeSearch(Node root, Node base, double radius, ArrayList<Node> range) {
+        // Base case: if the current node is null, return
+        if (root == null) {
+            return;
+        }
+
+        // Calculate the distance between the current node and the search point
+        double d = getDistance(base.coords_[0],base.coords_[1],root.coords_[0],root.coords_[1]);
+        if (d <= radius && base.id != root.id) {
+            range.add(root);
+        }// Recursively search the left and right subtrees, if they exist
+        rangeSearch(root.left_, base, radius, range);
+        rangeSearch(root.right_, base, radius, range);
+    }
+
+
+        public ArrayList<Node> findCollisions2(Node target, double radius){
         double start = System.currentTimeMillis();
         neighbours = new ArrayList<Node>();
         if (root_ == null)
@@ -135,9 +160,17 @@ public class KdTree {
     public int visited() {
         return visited_;
     }
+    public double getDistance(double particleX,double particleY,double neighbourX,double neighbourY){
+        double dx = particleX - neighbourX;
+        double dy = particleY - neighbourY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
 
-    public double distance() {
-        return Math.sqrt(bestDistance_);
+
+        return distance;
+    }
+    public double distance(double[] point) {
+        double dist = Math.sqrt(Math.pow(point[0],2 )+Math.pow(point[1],2 ));
+        return dist;
     }
 
 

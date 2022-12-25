@@ -22,7 +22,6 @@ public class KdTreeTest {
         KdTree.Node nearest = tree.findNearest(new KdTree.Node(9, 2));
         System.out.println("Wikipedia example data:");
         System.out.println("nearest point: " + nearest);
-        System.out.println("distance: " + tree.distance());
         System.out.println("nodes visited: " + tree.visited());
     }
 
@@ -44,7 +43,6 @@ public class KdTreeTest {
         System.out.println("Random data (" + points + " points):");
         System.out.println("target: " + target);
         System.out.println("nearest point: " + nearest);
-        System.out.println("distance: " + tree.distance());
         System.out.println("nodes visited: " + tree.visited());
     }
 }

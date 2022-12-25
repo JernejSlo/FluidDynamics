@@ -22,7 +22,7 @@ public class Fluid2D extends Application {
 
 
     public static KdTree tree;
-    public static int NUM_PARTICLES = 1000;
+    public static int NUM_PARTICLES = 2000;
     public static int PARTICLE_RADIUS = 3;
     private List<ParticleDrawn> particles = new ArrayList<>();
 
@@ -49,8 +49,6 @@ public class Fluid2D extends Application {
     public double NORMALIZATION_VISCOUS_FORCE = (45 * DYNAMIC_VISCOSITY * mass) / (Math.PI * (Math.pow((smoothingLength),6)));
     public double NORMALIZATION_PRESSURE_FORCE = -((45 * mass) / (Math.PI * Math.pow((smoothingLength),6)));
 
-    // Define the time step for the simulation
-    double dt = 0.001;
 
     private static final int MIN_X = 0;
     private static final int MIN_Y = 0;
@@ -176,24 +174,9 @@ public class Fluid2D extends Application {
     }
 
 
-    public ArrayList<KdTree.Node>  findCollisionsINFLUID(KdTree.Node currParticle){
-        ArrayList<KdTree.Node> list = new ArrayList<>();
-        for (int i = 0; i < particleCoordinates.size(); i++) {
-            double x = currParticle.getCoords_()[0];
-            double y = currParticle.getCoords_()[1];
-            double xi = particleCoordinates.get(i).getCoords_()[0];
-            double yi = particleCoordinates.get(i).getCoords_()[1];
-            if (getDistance(x,y,xi,yi) <= smoothingLength && currParticle.id != particleCoordinates.get(i).id){
-                list.add(particleCoordinates.get(i));
-            }
-        }
-        for (int i = 0; i < list.size(); i++) {
-        }
-        return list;
-    }
 
     public void calculateDensity(KdTree.Node currParticle){
-        ArrayList collisions = findCollisionsINFLUID(currParticle);
+        ArrayList collisions = tree.rangeSearch(currParticle,smoothingLength);
         double [] pl = currParticle.getCoords_();
         double density = NORMALIZATION_DENSITY * Math.pow((Math.pow(smoothingLength,2)-Math.pow(0,2)),3);
         for (int i = 0; i < collisions.size(); i++) {
@@ -212,75 +195,13 @@ public class Fluid2D extends Application {
         currParticle.setPressure(pressure);
     }
 
-    public double[] normalize(double[] vector){
-        double magnitude = Math.sqrt(vector[0]*vector[0] + vector[1]*vector[1]);
-        double[] normalizedVector = {vector[0]/magnitude, vector[1]/magnitude};
-
-
-
-        return normalizedVector;
-    }
-    public double [] sub(double [] vector,double[] subtract){
-        double [] subbedVector = new double[2];
-
-        subbedVector[0] = vector[0]-subtract[0];
-        subbedVector[1] = vector[1]-subtract[1];
-
-        return subbedVector;
-    }
-    public double [] add(double [] vector,double[] add){
-        double [] addedVector = new double[2];
-
-        addedVector[0] = vector[0]+add[0];
-        addedVector[1] = vector[1]+add[1];
-
-        return addedVector;
-    }
-    public double [] mul(double [] vector1,double scalar){
-        double [] mulVector = new double[2];
-
-        mulVector[0] = vector1[0]*scalar;
-        mulVector[1] = vector1[1]*scalar;
-
-        return mulVector;
-    }
-    public double [] vecmul(double [] vector1,double [] vector2){
-        double [] mulVector = new double[2];
-
-        mulVector[0] = vector1[0]*vector2[0];
-        mulVector[1] = vector1[1]*vector2[1];
-
-        return mulVector;
-    }
-    public double [] pow(double [] vector1,double pow){
-        double [] mulVector = new double[2];
-
-        mulVector[0] = Math.pow(vector1[0],pow);
-        mulVector[1] = Math.pow(vector1[1],pow);
-
-        return mulVector;
-    }
-    public double [] div(double [] vector1,double scalar){
-        double [] divVector = new double[2];
-
-        divVector[0] = vector1[0]/scalar;
-        divVector[1] = vector1[1]/scalar;
-
-        return divVector;
-    }
-    public double dot(double [] vector1,double [] vector2){
-
-        double dotProduct = (vector1[0]* vector2[0]) + (vector1[1]* vector2[1]);
-
-        return dotProduct;
-    }
 
     public void calculateForces(KdTree.Node currParticle) {
         double[] velocity = {0,0};
         double[] pressureForce = {0,0};
         double[] viscousForce = {0,0};
         double[] currentVelocity = currParticle.getVelocity();
-        ArrayList collisions = findCollisionsINFLUID(currParticle);
+        ArrayList collisions = tree.rangeSearch(currParticle,smoothingLength);
         double [] pl = currParticle.getCoords_();
         for (int i = 0; i < collisions.size(); i++) {
             KdTree.Node neighbour = (KdTree.Node) collisions.get(i);
@@ -391,6 +312,19 @@ public class Fluid2D extends Application {
 
         KdTree.Node nearest;
 
+        /*
+        System.out.println("New function");
+        ArrayList<KdTree.Node> kd = tree.rangeSearch(particleCoordinates.get(0),smoothingLength);
+        for (int i = 0; i < kd.size(); i++) {
+            System.out.println(kd.get(i));
+        }
+
+         */
+
+
+
+
+
 
 
         for (int i = 0; i < particles.size(); i++) {
@@ -398,22 +332,22 @@ public class Fluid2D extends Application {
                 if (dam < 1000){
 
                     damBreak(particleCoordinates.get(i));
+                    if (simulateDamBreak){
+                        dam+=1;
+                    }
                 }
             }
 
 
             checkIfBounced(particleCoordinates.get(i));
         }
-        if (simulateDamBreak){
-            dam+=1;
-            System.out.println(dam);
-        }
+
 
         for (int i = 0; i < particles.size(); i++) {
             KdTree.Node currParticle = particleCoordinates.get(i);
             calculateDensity(currParticle);
             if (currParticle.getDensity() == 0){
-                currParticle.setDensity(0.0001);
+                currParticle.setDensity(BASE_DENSITY);
             }
         }
 
@@ -427,6 +361,7 @@ public class Fluid2D extends Application {
             calculateForces(currParticle);
         }
 
+        tree = new KdTree(2,particleCoordinates);
 
         updateParticles();
 
@@ -438,21 +373,75 @@ public class Fluid2D extends Application {
 
 
     public double getDistance(double particleX,double particleY,double neighbourX,double neighbourY){
-        double distance = 0;
-        double dx = Math.abs(neighbourX - particleX);
-        double dy = Math.abs(neighbourY - particleY);
-
-        double min = Math.min(dx, dy);
-        double max = Math.max(dx, dy);
-
-        double diagonalSteps = min;
-        double straightSteps = max - min;
-
-        distance = Math.sqrt(2) * diagonalSteps + straightSteps;
+        double dx = particleX - neighbourX;
+        double dy = particleY - neighbourY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
 
 
         return distance;
     }
 
 
+    public double[] normalize(double[] vector){
+        double magnitude = Math.sqrt(vector[0]*vector[0] + vector[1]*vector[1]);
+        double[] normalizedVector = {vector[0]/magnitude, vector[1]/magnitude};
+
+
+
+        return normalizedVector;
+    }
+    public double [] sub(double [] vector,double[] subtract){
+        double [] subbedVector = new double[2];
+
+        subbedVector[0] = vector[0]-subtract[0];
+        subbedVector[1] = vector[1]-subtract[1];
+
+        return subbedVector;
+    }
+    public double [] add(double [] vector,double[] add){
+        double [] addedVector = new double[2];
+
+        addedVector[0] = vector[0]+add[0];
+        addedVector[1] = vector[1]+add[1];
+
+        return addedVector;
+    }
+    public double [] mul(double [] vector1,double scalar){
+        double [] mulVector = new double[2];
+
+        mulVector[0] = vector1[0]*scalar;
+        mulVector[1] = vector1[1]*scalar;
+
+        return mulVector;
+    }
+    public double [] vecmul(double [] vector1,double [] vector2){
+        double [] mulVector = new double[2];
+
+        mulVector[0] = vector1[0]*vector2[0];
+        mulVector[1] = vector1[1]*vector2[1];
+
+        return mulVector;
+    }
+    public double [] pow(double [] vector1,double pow){
+        double [] mulVector = new double[2];
+
+        mulVector[0] = Math.pow(vector1[0],pow);
+        mulVector[1] = Math.pow(vector1[1],pow);
+
+        return mulVector;
+    }
+    public double [] div(double [] vector1,double scalar){
+        double [] divVector = new double[2];
+
+        divVector[0] = vector1[0]/scalar;
+        divVector[1] = vector1[1]/scalar;
+
+        return divVector;
+    }
+    public double dot(double [] vector1,double [] vector2){
+
+        double dotProduct = (vector1[0]* vector2[0]) + (vector1[1]* vector2[1]);
+
+        return dotProduct;
+    }
 }
