@@ -1,5 +1,7 @@
 package com.example.fluiddynamicsjavafx;
 
+import javafx.scene.paint.Color;
+
 import java.util.*;
 
 public class KdTree {
@@ -204,8 +206,18 @@ public class KdTree {
 
     public static class Node {
         private double[] coords_;
-        public int id;
 
+        public Color getColor() {
+            return color;
+        }
+
+        public void setColor(Color color) {
+            this.color = color;
+        }
+
+        private Color color = Color.LIGHTSKYBLUE;
+        public int id;
+        private int radius = Fluid2D.PARTICLE_RADIUS;
         private double [] velocity;
         private double density;
         private double pressure;
@@ -283,6 +295,14 @@ public class KdTree {
 
         public void setVelocity(double[] velocity) {
             this.velocity = velocity;
+        }
+
+        public int getRadius() {
+            return radius;
+        }
+
+        public void setRadius(int radius) {
+            this.radius = radius;
         }
     }
 }

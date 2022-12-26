@@ -169,7 +169,6 @@ public class Fluid2D extends Application {
 
     private static class ParticleDrawn extends Parent {
         Circle shape;
-
         ParticleDrawn(){
             shape = new Circle(PARTICLE_RADIUS*2);
             shape.setFill(Color.LIGHTSKYBLUE);
@@ -178,10 +177,6 @@ public class Fluid2D extends Application {
         }
         public void setColor(Color color){
             shape.setFill(color);
-        }
-
-        public void setRadius(int radius){
-            shape.setRadius(radius);
         }
     }
 
@@ -269,7 +264,15 @@ public class Fluid2D extends Application {
 
         return dotProduct;
     }
+    public void find_surface(KdTree.Node currParticle){
+        double densityThreshold = 0.0039;
 
+        if (currParticle.getDensity() < densityThreshold) {
+            currParticle.setColor(Color.WHITE);
+        }else {
+            currParticle.setColor(Color.LIGHTSKYBLUE);
+        }
+    }
     public void calculateForces(KdTree.Node currParticle) {
         double[] velocity = {0,0};
         double[] pressureForce = {0,0};
@@ -379,7 +382,6 @@ public class Fluid2D extends Application {
             particles.get(p.id).setTranslateX(p.getCoords_()[0]);
             particles.get(p.id).setTranslateY(Math.abs(p.getCoords_()[1]-MAX_Y));
             particles.get(p.id).setColor(p.getColor());
-            particles.get(p.id).setRadius(p.getRadius());
 
         }
     }
@@ -406,6 +408,7 @@ public class Fluid2D extends Application {
         }
         if (simulateDamBreak){
             dam+=1;
+            System.out.println(dam);
         }
 
         for (int i = 0; i < particles.size(); i++) {
@@ -426,159 +429,12 @@ public class Fluid2D extends Application {
             calculateForces(currParticle);
         }
 
-
-
-        List<KdTree.Node> surfaceParticles = getSurfaceParticles();
-
-        List<double[]> normalVectors = getNormalVectors(surfaceParticles);
-
-        List<Double> curvatureValues = findCurves(surfaceParticles, normalVectors);
-
-        for (int i = 0;i < surfaceParticles.size();i++) {
-            double[] force = calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.001, surfaceParticles.get(i).getPressure());
-            if (add(surfaceParticles.get(i).getVelocity(),force)[1]+"" != "NaN") {
-                surfaceParticles.get(i).setVelocity(add(surfaceParticles.get(i).getVelocity(),force));
-            }
-        }
-
-
-
-
-
-        updateParticles();
-
-    }
-
-    public static double[] calculateSurfaceTensionForce(double curve,double[] normal, double surfaceTensionCoefficient, double pressure) {
-        // Calculate the surface tension force using the Young-Laplace equation
-        double[] force = new double[2];
-        force[0] = surfaceTensionCoefficient * curve * normal[1];
-        force[1] = -surfaceTensionCoefficient * curve * normal[0];
-
-        return force;
-    }
-
-
-    public List<Double> findCurves(List<KdTree.Node> surfaceParticles,List<double[]> NormalVectors){
-        List<Double> curves = new ArrayList<>();
-        for (int i = 0;i < surfaceParticles.size();i++) {
-            double curvature = calculateCurvature(surfaceParticles.get(i), surfaceParticles, NormalVectors.get(i));
-
-            // Add the curvature value to the list of curvature values
-            curves.add(curvature);
-        }
-        return curves;
-    }
-    public static double calculateCurvature(KdTree.Node particle, List<KdTree.Node> surfaceParticles, double[] normal) {
-        // Define a coordinate system centered at the particle
-        double[] xAxis = { 1, 0 };
-        double[] yAxis = { 0, 1 };
-        double[] zAxis = normal;
-
-        // Project the positions of the neighboring particles onto the xy-plane of the coordinate system
-        List<double[]> projectedPositions = new ArrayList<>();
-        for (KdTree.Node neighbor : surfaceParticles) {
-            if (neighbor == particle) continue; // skip the current particle
-            double[] projection = projectPosition(neighbor.getCoords_()[0], neighbor.getCoords_()[1], zAxis, xAxis, yAxis);
-            projectedPositions.add(projection);
-        }
-
-        // Fit a curve to the projected positions using linear regression
-        double[] coefficients = linearRegression(projectedPositions);
-
-        // Calculate the curvature using the second derivative of the curve
-        double curvature = 2 * coefficients[1];
-
-        return curvature;
-    }
-
-    public static double[] projectPosition(double x, double y, double[] normal, double[] xAxis, double[] yAxis) {
-        // Calculate the projection of the position onto the plane
-        double[] projection = new double[2];
-        projection[0] = x * xAxis[0] + y * yAxis[0];
-        projection[1] = x * xAxis[1] + y * yAxis[1];
-
-        return projection;
-    }
-
-    public static double[] linearRegression(List<double[]> points) {
-        int n = points.size();
-
-        // Calculate the sums
-        double sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
-        for (double[] point : points) {
-            double x = point[0];
-            double y = point[1];
-            sx += x;
-            sy += y;
-            sxx += x * x;
-            syy += y * y;
-            sxy += x * y;
-        }
-
-        // Calculate the coefficients
-        double a = (n * sxy - sx * sy) / (n * sxx - sx * sx);
-        double b = (sy - a * sx) / n;
-
-        return new double[] { a, b };
-    }
-
-    public List<double[]> getNormalVectors(List<KdTree.Node> surfaceParticles){
-        List<double[]> normalVectors = new ArrayList<>();
-        for ( KdTree.Node particle : surfaceParticles){
-            double[] avgNormal = new double[2];
-            for (KdTree.Node neighbour : neighbors[particle.id]){
-                double[] faceNormal = calculateFaceNormal(particle.getCoords_()[0],particle.getCoords_()[1],neighbour.getCoords_()[0],neighbour.getCoords_()[1]);
-                avgNormal[0] += faceNormal[0];
-                avgNormal[1] += faceNormal[1];
-            }
-            double length = Math.sqrt(avgNormal[0] * avgNormal[0] + avgNormal[1] * avgNormal[1]);
-            avgNormal[0] /= length;
-            avgNormal[1] /= length;
-
-            normalVectors.add(avgNormal);
-        }
-        return normalVectors;
-    }
-    public static double[] calculateFaceNormal(double x1, double y1, double x2, double y2) {
-        // Calculate the vector pointing from (x1, y1) to (x2, y2)
-        double[] v = { x2 - x1, y2 - y1 };
-
-        // Rotate the vector 90 degrees clockwise to obtain the normal vector
-        double[] n = { -v[1], v[0] };
-
-        return n;
-    }
-    public List<KdTree.Node> getSurfaceParticles(){
-        List<KdTree.Node> surfaceParticles = new ArrayList<>();
         for (int i = 0; i < particles.size(); i++) {
             KdTree.Node currParticle = particleCoordinates.get(i);
-            if (find_surface(currParticle)){
-                surfaceParticles.add(currParticle);
-            }
+            find_surface(currParticle);
         }
-        return surfaceParticles;
-    }
+        updateParticles();
 
-    public boolean find_surface(KdTree.Node currParticle){
-        double densityThreshold = -19.92;
-        System.out.println(currParticle.getPressure());
-
-        if (currParticle.getPressure() < densityThreshold && neighbors[currParticle.id].size() < 3 && neighbors[currParticle.id].size() != 0) {
-            currParticle.setColor(Color.WHITE);
-            currParticle.setRadius(PARTICLE_RADIUS*2);
-            return true;
-        }else {
-            if (neighbors[currParticle.id].size() < 5){
-                currParticle.setColor(Color.LIGHTSKYBLUE);
-                currParticle.setRadius(PARTICLE_RADIUS*2+1);
-            }
-            else {
-                currParticle.setColor(Color.DEEPSKYBLUE);
-                currParticle.setRadius(PARTICLE_RADIUS*2+2);
-            }
-        }
-        return false;
     }
 
     public static void main(String[] args) {
