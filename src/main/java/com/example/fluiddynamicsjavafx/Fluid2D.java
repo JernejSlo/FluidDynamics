@@ -15,16 +15,16 @@ import java.util.*;
 
 public class Fluid2D extends Application {
 
-    int SCREEN_WIDTH = 360;
+    int SCREEN_WIDTH = 1280;
     int SCREEN_HEIGHT = 720;
     int dam = 0;
-    boolean simulateDamBreak = true;
+    boolean simulateDamBreak = false;
 
 
     public static KdTree tree;
-    public static int NUM_PARTICLES = 1000;
+    public static int NUM_PARTICLES = 2000;
     ArrayList<KdTree.Node> [] neighbors = new ArrayList[NUM_PARTICLES];
-    public static int PARTICLE_RADIUS = 3;
+    public static int PARTICLE_RADIUS = 8;
     private List<ParticleDrawn> particles = new ArrayList<>();
 
     public static double [][] positions = new double[NUM_PARTICLES][2];
@@ -32,7 +32,7 @@ public class Fluid2D extends Application {
 
     public static List<KdTree.Node> particleCoordinates = new ArrayList<>();
 
-    double smoothingLength = 2.5*PARTICLE_RADIUS;
+    double smoothingLength = PARTICLE_RADIUS*2;
 
 
 
@@ -62,7 +62,7 @@ public class Fluid2D extends Application {
     private static final double GRAVITY = 9.8;
 
     // The coefficient of restitution for the vectors
-    private static final double COR = 0.7;
+    private static final double COR = 0.9;
 
     @Override
     public void start(Stage stage) throws IOException {
@@ -79,7 +79,6 @@ public class Fluid2D extends Application {
     }
 
     private Parent createContent(){
-
 
         zeros = new double[2];
         zeros[0] = 0;
@@ -119,7 +118,7 @@ public class Fluid2D extends Application {
             }}
         else {
             x = MAX_X/4;
-            y = MAX_Y/2;
+            y = MAX_Y/4;
             for (int i = 0; i < NUM_PARTICLES; i++) {
                 ParticleDrawn particle = particles.get(i);
                 double num = smoothingLength;
@@ -141,7 +140,7 @@ public class Fluid2D extends Application {
 
         for (int i = 0; i < positions.length; i++) {
             KdTree.Node newNode = new KdTree.Node(new double[] {positions[i][0],positions[i][1]});
-            double [] velocity = {0.1,0};
+            double [] velocity = {400,-200};
 
             newNode.setVelocity(velocity);
             newNode.setDensity(BASE_DENSITY);
@@ -299,22 +298,6 @@ public class Fluid2D extends Application {
                             ,NORMALIZATION_VISCOUS_FORCE))
             );
 
-            //add gravity
-
-
-            /*
-            System.out.println("v: " + v[0]+", "+v[1]);
-            System.out.println("rhat: " + rhat[0]+", "+rhat[1]);
-            System.out.println("mu: " + mu);
-            System.out.println("P: " + P);
-            System.out.println("kernelValue: " + kernelValue);
-            System.out.println("pressureVelocity: " + pressureVelocity[0]+", "+pressureVelocity[1]);
-            System.out.println("addition to pressureVelocity: " + mul(rhat,(P*kernelValue))[0]+", "+mul(rhat,(P*kernelValue))[1]);
-            System.out.println("-----------------------------------------------------");
-
-             */
-
-
         }
 
 
@@ -426,20 +409,22 @@ public class Fluid2D extends Application {
             calculateForces(currParticle);
         }
 
-
+        // THIS IS THE SURFACE TENSION!
 
         List<KdTree.Node> surfaceParticles = getSurfaceParticles();
-
+        /*
         List<double[]> normalVectors = getNormalVectors(surfaceParticles);
 
         List<Double> curvatureValues = findCurves(surfaceParticles, normalVectors);
 
         for (int i = 0;i < surfaceParticles.size();i++) {
-            double[] force = calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.001, surfaceParticles.get(i).getPressure());
+            double[] force = calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.01, surfaceParticles.get(i).getPressure());
             if (add(surfaceParticles.get(i).getVelocity(),force)[1]+"" != "NaN") {
                 surfaceParticles.get(i).setVelocity(add(surfaceParticles.get(i).getVelocity(),force));
             }
         }
+
+         */
 
 
 
@@ -561,17 +546,17 @@ public class Fluid2D extends Application {
     }
 
     public boolean find_surface(KdTree.Node currParticle){
-        double densityThreshold = -19.92;
+        double densityThreshold = -19.94;
         System.out.println(currParticle.getPressure());
 
-        if (currParticle.getPressure() < densityThreshold && neighbors[currParticle.id].size() < 3 && neighbors[currParticle.id].size() != 0) {
+        if (currParticle.getPressure() < densityThreshold&& neighbors[currParticle.id].size() < 3) {
             currParticle.setColor(Color.WHITE);
-            currParticle.setRadius(PARTICLE_RADIUS*2);
+            currParticle.setRadius(PARTICLE_RADIUS*2-1);
             return true;
         }else {
             if (neighbors[currParticle.id].size() < 5){
                 currParticle.setColor(Color.LIGHTSKYBLUE);
-                currParticle.setRadius(PARTICLE_RADIUS*2+1);
+                currParticle.setRadius(PARTICLE_RADIUS*2);
             }
             else {
                 currParticle.setColor(Color.DEEPSKYBLUE);
