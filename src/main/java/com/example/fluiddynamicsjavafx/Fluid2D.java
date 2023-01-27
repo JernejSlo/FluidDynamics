@@ -18,7 +18,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 
-public class Fluid2D<PARTICLE_RADIUS> extends Application {
+public class Fluid2D extends Application {
 
     // Project by : Jernej Koprivnikar
     //
@@ -35,7 +35,7 @@ public class Fluid2D<PARTICLE_RADIUS> extends Application {
 
     public boolean paralel = false;
 
-    public boolean emitter = false;
+    public boolean emitter = true;
     public int[] emitterPosition = {SCREEN_WIDTH/2,SCREEN_HEIGHT/2};
     public int waitBetweenEmits = 10;
     public int emmitParticlesNum = 10;
