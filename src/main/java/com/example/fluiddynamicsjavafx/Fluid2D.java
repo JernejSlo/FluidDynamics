@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 
@@ -33,18 +32,37 @@ public class Fluid2D extends Application {
     public static int SCREEN_WIDTH = 800;
     public static int SCREEN_HEIGHT = 600;
 
-    public boolean paralel = false;
+    // run it in parallel mode, not yet finished (I need to merge the neighbour calculations with the particle calculations and add wait for all of them to finish), but it works
+    public boolean parallel = false;
 
-    public boolean emitter = true;
+    // turns emitter mode on/off
+    public boolean emitter = false;
+    // location of the emitter, don't place it outside the window
     public int[] emitterPosition = {SCREEN_WIDTH/2,SCREEN_HEIGHT/2};
+    // time between emits
     public int waitBetweenEmits = 10;
-    public int emmitParticlesNum = 10;
 
+    // when timeStep is too large it moves the particles too fast and creates a buggy look
+    // it performs the best with slower time steps      !This is true for all modes, since the calculations are more precise!
     public static boolean turnOnSurfaceTension = false;
-    public static boolean colorfull = true;
+
+    // adds color to the particles
+    public static boolean colorful = true;
+
+    // running with this turned off is somewhat ugly
+    // this increases the size of all particles by a varying amount based on the pressure
     public static boolean decrease_foam_volume = true;
+
+    // increasing this means shortening the time that the particles are in the "dam"
     static int dam = 0;
+    // this starts the simulation by simulating a dam break scenario
     static boolean simulateDamBreak = false;
+
+    // time step can be changed, with lower values (0.005>) it works better, but it is very slow
+    // also SLOWER timeStep show the surface tension way better, you can clearly see how particles join together to form a surface
+    // values that are greater than 0.01, can sometimes mess up the calculations but most of the time under 0.02 is fine
+    static double timeStep = 0.01;
+
 
     public static int PARTICLE_RADIUS = 8;
     public static int NUM_PARTICLES = (SCREEN_WIDTH+SCREEN_HEIGHT)/PARTICLE_RADIUS*5;
@@ -56,6 +74,7 @@ public class Fluid2D extends Application {
     // SOME CAN BE CHANGED BUT REALLY SHOULDN'T BE
     public static ExecutorService executorService;
 
+    public int emmitParticlesNum = 10;
     public static KdTree tree;
 
     private static List<ParticleDrawn> particles = new ArrayList<>();
@@ -68,10 +87,9 @@ public class Fluid2D extends Application {
     static double smoothingLength = PARTICLE_RADIUS*2;
     Pane root;
 
-
+    public int emmitCounter = 10;
     static double mass = 1;
     double [] zeros;
-    static double timeStep = 0.01;
 
     public static double ISOTROPIC_EXPONENT = 20;
     public static double BASE_DENSITY = 1;
@@ -137,7 +155,7 @@ public class Fluid2D extends Application {
 
                     particle.setTranslateX(x);
                     particle.setTranslateY(y);
-                    positions[i][0] = x; //+Math.random()*1;
+                    positions[i][0] = x;
                     positions[i][1] = y;
 
                     if (x >= (MAX_X)/2){
@@ -157,7 +175,7 @@ public class Fluid2D extends Application {
 
                     particle.setTranslateX(x);
                     particle.setTranslateY(y);
-                    positions[i][0] = x; //+Math.random()*1;
+                    positions[i][0] = x;
                     positions[i][1] = y;
 
                     if (x >= (3*MAX_X)/4){
@@ -196,7 +214,7 @@ public class Fluid2D extends Application {
 
                 particle.setTranslateX(x);
                 particle.setTranslateY(y);
-                positions[i][0] = x; //+Math.random()*1;
+                positions[i][0] = x;
                 positions[i][1] = y;
 
 
@@ -228,7 +246,7 @@ public class Fluid2D extends Application {
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                if (paralel){
+                if (parallel){
                     onUpdateParalel();
                 }
                 else {
@@ -383,8 +401,6 @@ public class Fluid2D extends Application {
 
         double [] velocityCalculated = add(currentVelocity, div(mul(velocity,timeStep),currParticle.getDensity()));
         newForces[currParticle.id] = velocityCalculated;
-        //currParticle.setVelocity(velocityCalculated);
-        //currParticle.setCoords_(add(pl,mul(currParticle.getVelocity(),timeStep)));
 
     }
 
@@ -399,7 +415,7 @@ public class Fluid2D extends Application {
         }
     }
 
-    // dodaj da se odbije od zida
+    // check if the particle has bounced from the walls and adjust vector speed
     public static void checkIfBounced(KdTree.Node currparticle){
         double []coords = currparticle.getCoords_();
         double []velocity = currparticle.getVelocity();
@@ -416,7 +432,6 @@ public class Fluid2D extends Application {
             currparticle.setCoords_(new double[] {MAX_X, currparticle.getCoords_()[1]});
         }
         if (coords[1] <= 0){
-            //double [] newVelocity = {velocity[0],-velocity[1]};
             double [] newVelocity = {velocity[0],-velocity[1]*COR};
             currparticle.setVelocity(newVelocity);
             currparticle.setCoords_(new double[] { currparticle.getCoords_()[0],0});
@@ -424,13 +439,13 @@ public class Fluid2D extends Application {
         if (coords[1] >= MAX_Y){
 
             double [] newVelocity = {velocity[0],-velocity[1]*COR};
-            //double [] newVelocity = {velocity[0],-velocity[1]};
             currparticle.setVelocity(newVelocity);
 
             currparticle.setCoords_(new double[] { currparticle.getCoords_()[0],MAX_Y});
         }
     }
 
+    // updates the positions of the particles on screen and takes care of adding new particles for emmiter
     public void updateParticles() {
         for (KdTree.Node p : particleCoordinates) {
 
@@ -440,14 +455,24 @@ public class Fluid2D extends Application {
             particles.get(p.id).setTranslateY(Math.abs(p.getCoords_()[1]-MAX_Y));
             particles.get(p.id).setColor(p.getColor());
             particles.get(p.id).setRadius(p.getRadius());
-            //particles.get(p.id).setColor(Color.TRANSPARENT);
-            //particles.get(p.id).setColor(Color.LIGHTSKYBLUE);
+
 
         }
-        waitBetweenEmits++;
-        if (particleCoordinates.size() < NUM_PARTICLES-1  && waitBetweenEmits > 100) {
+
+        // test
+        /*for (KdTree.Node p : neighbors[0]){
+            particles.get(p.id).setColor(Color.WHITE);
+            for (KdTree.Node n : neighbors[p.id]){
+                particles.get(n.id).setColor(Color.YELLOW);
+            }
+        }
+
+         */
+
+        emmitCounter++;
+        if (particleCoordinates.size() < NUM_PARTICLES-emmitParticlesNum  && emmitCounter > waitBetweenEmits) {
             addParticles();
-            waitBetweenEmits = 0;
+            emmitCounter = 0;
             tree = new KdTree(2,particleCoordinates);
             tree.setRadius(smoothingLength);
             if (particleCoordinates.size() == NUM_PARTICLES){
@@ -455,6 +480,7 @@ public class Fluid2D extends Application {
             }
         }
     }
+    // adds the particle to the panel and other arrays
     private void addParticles(){
         Random rand = new Random();
         for (int i = 0; i < emmitParticlesNum; i++) {
@@ -471,7 +497,7 @@ public class Fluid2D extends Application {
 
             particle.setTranslateX(x);
             particle.setTranslateY(y);
-            positions[i][0] = x; //+Math.random()*1;
+            positions[i][0] = x;
             positions[i][1] = y;
 
 
@@ -492,9 +518,8 @@ public class Fluid2D extends Application {
 
     }
 
+    // takes care of updating the particles for the parallel version
     private void onUpdateParalel(){
-
-
 
         List<KdTree.Node>[] points;
         points = new List[num_threads];
@@ -525,28 +550,34 @@ public class Fluid2D extends Application {
                 executorService.submit(segment);
             }
 
-        /*for (int i = 0; i < points.length; i++) {
-            for (int j = 0; j < points[i].size(); j++) {
-                System.out.print(points[i].get(j).id+ ", ");
-            }
-            System.out.println();
-        }
-
-         */
-
-
-
         updateParticles();
     }
 
+    // main function that calls other functions for calculations
     private void onUpdate(){
 
+        // actual function
         for (KdTree.Node particleCoordinate : particleCoordinates) {
             neighbors[particleCoordinate.id] = (tree.rangeSearch(particleCoordinate,smoothingLength));
-            //neighbors[particleCoordinate.id] = findCollisionsINFLUID(particleCoordinate);
+
         }
 
+        // temporary checker
+        /*for (KdTree.Node particleCoordinate : particleCoordinates) {
+            ArrayList<KdTree.Node> neigboursNew = new ArrayList<>();
+            double [] coords = particleCoordinate.getCoords_();
+            for (KdTree.Node particleCoordinate2 : particleCoordinates) {
+                double [] coords2 = particleCoordinate2.getCoords_();
+                if (particleCoordinate.id != particleCoordinate2.id){
+                    if (getDistance(coords[0],coords[1],coords2[0],coords2[1]) <= smoothingLength ){
+                        neigboursNew.add(particleCoordinate2);
+                    }
+                }
+                neighbors[particleCoordinate.id] = neigboursNew;
+            }
+        }
 
+         */
 
         for (int i = 0; i < particles.size(); i++) {
             if (simulateDamBreak){
@@ -590,10 +621,10 @@ public class Fluid2D extends Application {
         List<Double> curvatureValues = findCurves(surfaceParticles, normalVectors);
         if (true){
             for (int i = 0;i < surfaceParticles.size();i++) {
-                double[] force = calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.02, surfaceParticles.get(i).getPressure());
+                double[] force = calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.0000000001, surfaceParticles.get(i).getPressure());
                 if (add(surfaceParticles.get(i).getVelocity(),force)[1]+"" != "NaN") {
                     if (turnOnSurfaceTension){
-                        newForces[i] = (add(surfaceParticles.get(i).getVelocity(),force));
+                        newForces[i] = (add(newForces[surfaceParticles.get(i).id], force));
                     }
                 }
             }
@@ -605,69 +636,10 @@ public class Fluid2D extends Application {
             currParticle.setCoords_(add(currParticle.getCoords_(), mul(currParticle.getVelocity(),timeStep)));
         }
 
-        // THIS IS THE SURFACE LINE CODE
-        /*
-        List<double[]> points = new ArrayList<>();
-        for (int i = 0;i < surfaceParticles.size();i++) {
-            points.add(surfaceParticles.get(i).getCoords_());
-        }
-        for (int i = 0; i < points.size(); i++) {
-            for (int j = 0; j < points.size()-1; j++) {
-                if (points.get(j)[0] > points.get(j+1)[0]){
-                    Collections.swap(points,j,j+1);
-
-                }
-            }
-        }
-        List<double[]> surface_points = new ArrayList<>();
-        for (int i = 0; i <= surface_detail; i++) {
-            double[] largest = {MAX_X*i/surface_detail,0};
-            for (int j = 0; j < points.size()-1; j++) {
-                double[] curr = points.get(j);
-                if (curr[0] > MAX_X*i/surface_detail && curr[0] > MAX_X*(i+1)/surface_detail){
-                    if (largest[1] < curr[1]){
-                        largest = curr;
-                    }
-                }
-
-            }
-            //System.out.println(largest[1] +" ---> " + MAX_X*(i+1)/surface_detail);
-            surface_points.add(largest);
-        }
-
-         */
-        //drawCurves(surface_points);
-
         updateParticles();
 
     }
 
-    public void drawCurves(List<double[]> points){
-        for (int i = 0; i < num_threads; i++) {
-            Line curve = curves.get(i);
-            //System.out.println(points.get(i)[0] + ", " +points.get(i)[1]);
-            double[] Start = points.get(i);
-            double[] End = points.get(i+1);
-
-
-            curve.setStartX(Start[0]);
-            curve.setStartY(MAX_Y-Start[1]);
-            curve.setEndX(End[0]);
-            curve.setEndY(MAX_Y-End[1]);
-
-
-
-            curve.setStroke(Color.BROWN);
-            curve.setStrokeWidth(3);
-
-        }
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        System.out.println("_--------------------------------------");
-    }
 
 
     public static double[] calculateSurfaceTensionForce(double curve,double[] normal, double surfaceTensionCoefficient, double pressure) {
@@ -785,38 +757,35 @@ public class Fluid2D extends Application {
         }
         return surfaceParticles;
     }
-
+    // finds all particles that are on the surface, judging by the number of its neighbours and its pressure. It also resizes and colors them.
     public static boolean find_surface(KdTree.Node currParticle){
         double densityThreshold = -19.94;
         if (PARTICLE_RADIUS < 6){
             densityThreshold = -19.5;
         }
-        //System.out.println(currParticle.getPressure());
 
         if (currParticle.getPressure() < densityThreshold&& neighbors[currParticle.id].size() < 3) {
-            if (colorfull){
+            if (colorful){
 
             }
             currParticle.setColor(Color.WHITE);
             if (decrease_foam_volume){
                 currParticle.setRadius(PARTICLE_RADIUS*2-2);
             }
-            if(neighbors[currParticle.id].size() > 1){
+            if(neighbors[currParticle.id].size() > 0){
                 return true;
             }
         }else {
             if (neighbors[currParticle.id].size() < 5){
-                if (colorfull){
+                if (colorful){
                     currParticle.setColor(Color.LIGHTSKYBLUE);
                 }
-                //
                 if (decrease_foam_volume){
                     currParticle.setRadius(PARTICLE_RADIUS*2);
                 }
             }
             else {
-                //
-                if (colorfull){
+                if (colorful){
                     currParticle.setColor(Color.DEEPSKYBLUE);
                 }
                 if (decrease_foam_volume){
@@ -837,7 +806,7 @@ public class Fluid2D extends Application {
 
     }
 
-
+    // distance function
     public static double getDistance(double particleX, double particleY, double neighbourX, double neighbourY){
         double dx = particleX - neighbourX;
         double dy = particleY - neighbourY;

@@ -1,5 +1,6 @@
 package com.example.fluiddynamicsjavafx;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Segment extends Thread{
@@ -35,6 +36,10 @@ public class Segment extends Thread{
             KdTree.Node currParticle = particles.get(i);
             Fluid2D.calculateForces(currParticle);
         }
+        for (int i = 0; i < particles.size(); i++) {
+            KdTree.Node currParticle = particles.get(i);
+            currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
+        }
 
 
         List<KdTree.Node> surfaceParticles = Fluid2D.getSurfaceParticles(particles);
@@ -51,10 +56,14 @@ public class Segment extends Thread{
         }
 
          */
-
+        for (KdTree.Node currParticle : particles){
+            currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
+            currParticle.setCoords_(Fluid2D.add(currParticle.getCoords_(), Fluid2D.mul(currParticle.getVelocity(),Fluid2D.timeStep)));
+        }
         for (int i = 0; i < particles.size(); i++) {
             checkIfBounced(particles.get(i));
         }
+
 
     }
 
