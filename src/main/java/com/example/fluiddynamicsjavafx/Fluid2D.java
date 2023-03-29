@@ -12,9 +12,9 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 
 public class Fluid2D extends Application {
@@ -22,9 +22,9 @@ public class Fluid2D extends Application {
     // Project by : Jernej Koprivnikar
     //
     // Credit to the creator of this video - https://www.youtube.com/watch?v=-0m05gzk8nk&ab_channel=MachineLearning%26Simulation
-    // I translated the code into java and added surface tension and foam. Original code is in python and mostly uses python
-    // libraries to do the calculations, so this code is not that similar. The things that are the same are the equations which are
-    // from this paper: https://matthias-research.github.io/pages/publications/sca03.pdf
+    // some equations used in my code are from this video (density, pressure and forces. The original code is in python).
+    // The creator of the video used the calculations from this research paper to create his code:
+    // https://matthias-research.github.io/pages/publications/sca03.pdf
 
 
     // CHANGEABLE PARAMETERS
@@ -32,12 +32,12 @@ public class Fluid2D extends Application {
     public static int SCREEN_WIDTH = 800;
     public static int SCREEN_HEIGHT = 600;
 
-    // run it in parallel mode, not yet finished (I need to merge the neighbour calculations with the particle calculations and add wait for all of them to finish), but it works
-    public boolean parallel = false;
+    // run it in parallel mode
+    public boolean parallel = true;
 
     // turns emitter mode on/off
     public boolean emitter = false;
-    // location of the emitter, don't place it outside the window
+    // location of the emitter, don't place it outside the window!
     public int[] emitterPosition = {SCREEN_WIDTH/2,SCREEN_HEIGHT/2};
     // time between emits
     public int waitBetweenEmits = 10;
@@ -66,7 +66,7 @@ public class Fluid2D extends Application {
 
     public static int PARTICLE_RADIUS = 8;
     public static int NUM_PARTICLES = (SCREEN_WIDTH+SCREEN_HEIGHT)/PARTICLE_RADIUS*5;
-    public static int num_threads = 30;
+    public static int num_threads = (SCREEN_WIDTH/(PARTICLE_RADIUS*2)) * (SCREEN_HEIGHT/(PARTICLE_RADIUS*2))/3 ;
     protected static ArrayList<KdTree.Node> [] neighbors = new ArrayList[NUM_PARTICLES];
     double[] startVector = {500,-200};
 
@@ -247,7 +247,7 @@ public class Fluid2D extends Application {
             @Override
             public void handle(long now) {
                 if (parallel){
-                    onUpdateParalel();
+                    onUpdateParallel();
                 }
                 else {
 
@@ -519,10 +519,12 @@ public class Fluid2D extends Application {
     }
 
     // takes care of updating the particles for the parallel version
-    private void onUpdateParalel(){
+    private void onUpdateParallel(){
 
         List<KdTree.Node>[] points;
         points = new List[num_threads];
+
+
         for (int i = 0; i < points.length; i++) {
             points[i] = new ArrayList<>();
         }
@@ -533,22 +535,11 @@ public class Fluid2D extends Application {
                     }
                 }
             }
-            for (int i = 0; i < points.length; i++) {
-                NeighbourThread nbt = new NeighbourThread(points[i]);
-                executorService.submit(nbt);
-            }
 
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            executorService = Executors.newCachedThreadPool();
-            for (int i = 0; i < points.length; i++) {
-                Segment segment = new Segment(points[i],tree);
-                executorService.submit(segment);
-            }
+        for (int i = 0; i < points.length; i++) {
+            Segment segment = new Segment(points[i],tree);
+            executorService.submit(segment);
+        }
 
         updateParticles();
     }

@@ -2,6 +2,7 @@ package com.example.fluiddynamicsjavafx;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BrokenBarrierException;
 
 public class Segment extends Thread{
     List<KdTree.Node> particles;
@@ -13,8 +14,9 @@ public class Segment extends Thread{
 
     public void run(){
         //System.out.println(this.getId() + "is checking a array of the size " + particles.size());
-
-
+        for(KdTree.Node particle : particles){
+            Fluid2D.neighbors[particle.id] = (Fluid2D.tree.rangeSearch(particle,Fluid2D.smoothingLength));
+        }
 
 
         for (int i = 0; i < particles.size(); i++) {
