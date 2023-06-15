@@ -5,22 +5,22 @@ import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
 
 public class Segment extends Thread{
-    List<KdTree.Node> particles;
-    KdTree tree;
-    public Segment(List<KdTree.Node> particles, KdTree tree){
+    List<Particle> particles;
+    Grid grid;
+    public Segment(List<Particle> particles, Grid grid){
         this.particles = particles;
-        this.tree = tree;
+        this.grid = grid;
     }
 
     public void run(){
         //System.out.println(this.getId() + "is checking a array of the size " + particles.size());
-        for(KdTree.Node particle : particles){
-            Fluid2D.neighbors[particle.id] = (Fluid2D.tree.rangeSearch(particle,Fluid2D.smoothingLength));
+        for(Particle particle : particles){
+            Fluid2D.neighbors[particle.id] = (Fluid2D.grid.GetNeighbors(particle));
         }
 
 
         for (int i = 0; i < particles.size(); i++) {
-            KdTree.Node currParticle = particles.get(i);
+            Particle currParticle = particles.get(i);
             Fluid2D.calculateDensity(currParticle);
             if (currParticle.getDensity() == 0){
                 currParticle.setDensity(0.0001);
@@ -28,23 +28,23 @@ public class Segment extends Thread{
         }
 
         for (int i = 0; i < particles.size(); i++) {
-            KdTree.Node currParticle = particles.get(i);
+            Particle currParticle = particles.get(i);
             Fluid2D.calculatePressure(currParticle);
         }
 
 
 
         for (int i = 0; i < particles.size(); i++) {
-            KdTree.Node currParticle = particles.get(i);
+            Particle currParticle = particles.get(i);
             Fluid2D.calculateForces(currParticle);
         }
         for (int i = 0; i < particles.size(); i++) {
-            KdTree.Node currParticle = particles.get(i);
+            Particle currParticle = particles.get(i);
             currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
         }
 
 
-        List<KdTree.Node> surfaceParticles = Fluid2D.getSurfaceParticles(particles);
+        List<Particle> surfaceParticles = Fluid2D.getSurfaceParticles(particles);
 
         List<double[]> normalVectors = Fluid2D.getNormalVectors(surfaceParticles);
 
@@ -58,7 +58,7 @@ public class Segment extends Thread{
         }
 
          */
-        for (KdTree.Node currParticle : particles){
+        for (Particle currParticle : particles){
             currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
             currParticle.setCoords_(Fluid2D.add(currParticle.getCoords_(), Fluid2D.mul(currParticle.getVelocity(),Fluid2D.timeStep)));
         }
@@ -69,7 +69,7 @@ public class Segment extends Thread{
 
     }
 
-    public static void checkIfBounced(KdTree.Node currparticle){
+    public static void checkIfBounced(Particle currparticle){
         double []coords = currparticle.getCoords_();
         double []velocity = currparticle.getVelocity();
         if (coords[0] <= Fluid2D.MIN_X){
