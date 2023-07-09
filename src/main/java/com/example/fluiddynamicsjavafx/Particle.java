@@ -37,14 +37,7 @@ public class Particle {
         return dist;
     }
     public String toString() {
-        StringBuilder s = new StringBuilder("(");
-        for (int i = 0; i < coords_.length; ++i) {
-            if (i > 0)
-                s.append(", ");
-            s.append(coords_[i]);
-        }
-        s.append(')');
-        return s.toString() + " with id: " + id;
+        return "("+coords_[0]+","+coords_[1]+")"+"_"+id+"_"+density+"_"+pressure+"_"+"("+velocity[0]+","+velocity[1]+")";
     }
     public void show(){
         System.out.println("For particle " + this.id +" the values are:");

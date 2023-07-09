@@ -32,9 +32,16 @@ public class Fluid2D extends Application {
     public static int SCREEN_WIDTH = 1200;
     public static int SCREEN_HEIGHT = 800;
 
+    // enable distributed mode
+    public boolean distributed = false;
+    public boolean host = true;
+    public static String hostAddress = "127.0.0.1";
+    public static int hostPort = 9999;
+    public static double prev = System.nanoTime();
+    public static double[] all = {0,0};
 
     // run it in parallel mode
-    public boolean parallel = false;
+    public boolean parallel = true;
 
     // turns emitter mode on/off
     public boolean emitter = false;
@@ -62,12 +69,11 @@ public class Fluid2D extends Application {
     // time step can be changed, with lower values (0.005>) it works better, but it is very slow
     // also SLOWER timeStep show the surface tension way better, you can clearly see how particles join together to form a surface
     // values that are greater than 0.01, can sometimes mess up the calculations but most of the time under 0.02 is fine
-    static double timeStep = 0.01;
+    static double timeStep = 0.015;
 
 
     public static int PARTICLE_RADIUS = 8;
-    public static int NUM_PARTICLES = 3000;
-    public static int num_threads = 60 ;
+    public static int NUM_PARTICLES = 4000;
     protected static ArrayList<Particle> [] neighbors = new ArrayList[NUM_PARTICLES];
     double[] startVector = {500,-200};
 
@@ -77,7 +83,8 @@ public class Fluid2D extends Application {
 
     public int emmitParticlesNum = 10;
     public static Grid grid;
-    public int size = 12;
+    public static int size = 12;
+    public static int num_threads = 48;
 
     private static List<ParticleDrawn> particles = new ArrayList<>();
     private List<Line> curves = new ArrayList<>();
@@ -95,7 +102,7 @@ public class Fluid2D extends Application {
 
     public static double ISOTROPIC_EXPONENT = 20;
     public static double BASE_DENSITY = 1;
-    public static double [] CONSTANT_FORCE = {0,-0.1};
+    public static double [] CONSTANT_FORCE = {0.05,-0.1};
     public static double DYNAMIC_VISCOSITY = 0.5;
 
     public static double NORMALIZATION_DENSITY = (315 * mass) / (64 * Math.PI * Math.pow((smoothingLength),9));
@@ -248,12 +255,17 @@ public class Fluid2D extends Application {
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                if (parallel){
-                    onUpdateParallel();
+                if (distributed){
+                    onUpdateDistributed();
                 }
                 else {
+                    if (parallel){
+                        onUpdateParallel();
+                    }
+                    else {
 
-                    onUpdate();
+                        onUpdate();
+                    }
                 }
 
             }
@@ -287,21 +299,21 @@ public class Fluid2D extends Application {
         return (1 / (Math.PI * Math.pow(h, 2))) * Math.exp(-0.5 * Math.pow(q, 2));
     }
 
-
     public static void calculateDensity(Particle currParticle){
         ArrayList collisions = neighbors[currParticle.id];
         double [] pl = currParticle.getCoords_();
-        double density = NORMALIZATION_DENSITY * Math.pow((Math.pow(smoothingLength,2)-Math.pow(0,2)),3);
+        double density = Math.pow((Math.pow(smoothingLength,2)-Math.pow(0,2)),3);
         for (int i = 0; i < collisions.size(); i++) {
             Particle neighbour = (Particle) collisions.get(i);
             double [] c = neighbour.getCoords_();
             double distance = getDistance(pl[0],pl[1],c[0],c[1]);
-
-            density+=NORMALIZATION_DENSITY * Math.pow((Math.pow(smoothingLength,2)-Math.pow(distance-PARTICLE_RADIUS,2)),3);
+            density+=Math.pow((Math.pow(smoothingLength,2)-Math.pow(distance-PARTICLE_RADIUS,2)),3);
 
         }
-        currParticle.setDensity(density);
+        currParticle.setDensity(NORMALIZATION_DENSITY * density);
     }
+
+
     public static void calculatePressure(Particle currParticle){
         double pressure = ISOTROPIC_EXPONENT * (currParticle.getDensity() -BASE_DENSITY);
         currParticle.setPressure(pressure);
@@ -401,9 +413,13 @@ public class Fluid2D extends Application {
 
         }
 
-
         velocity = add(add(pressureForce,viscousForce),CONSTANT_FORCE);
+        /*System.out.println(velocity[0]+ ", " + velocity[1]);
+        System.out.println(currParticle.getDensity());
+        System.out.println(currParticle.getPressure());
+        System.out.println();
 
+         */
 
         double [] velocityCalculated = add(currentVelocity, div(mul(velocity,timeStep),currParticle.getDensity()));
         newForces[currParticle.id] = velocityCalculated;
@@ -451,8 +467,54 @@ public class Fluid2D extends Application {
         }
     }
 
+    public static void updateParticlesDistributed() {
+
+        double start1 = System.nanoTime();
+        double last = (start1-prev)/1000000.0;
+        System.out.println("Time since last update " + last);
+        prev = start1;
+        all[0]+= last;
+        all[1]++;
+        double calc = (all[0]/all[1]);
+        System.out.println("Avg " + calc);
+
+        for (Particle p : particleCoordinates) {
+            particles.get(p.id).setTranslateX(p.coords_[0]);
+            particles.get(p.id).setTranslateY(Math.abs(p.getCoords_()[1]-MAX_Y));
+            particles.get(p.id).setColor(p.getColor());
+            particles.get(p.id).setRadius(p.getRadius());
+        }
+
+
+        // test
+        /*for (KdTree.Node p : neighbors[0]){
+            particles.get(p.id).setColor(Color.WHITE);
+            for (KdTree.Node n : neighbors[p.id]){
+                particles.get(n.id).setColor(Color.YELLOW);
+            }
+        }
+
+         */
+        grid = new Grid(size,smoothingLength);
+        for (Particle p : particleCoordinates){
+            grid.Insert(p);
+        }
+        //System.out.println("Updated particle positions");
+
+    }
     // updates the positions of the particles on screen and takes care of adding new particles for emmiter
     public void updateParticles() {
+
+        double start1 = System.nanoTime();
+        double last = (start1-prev)/1000000.0;
+        System.out.println("Time since last update " + last);
+        prev = start1;
+        all[0]+= last;
+        all[1]++;
+        double calc = (all[0]/all[1]);
+        System.out.println("Avg " + calc);
+
+
         for (Particle p : particleCoordinates) {
 
 
@@ -533,6 +595,22 @@ public class Fluid2D extends Application {
 
     }
 
+    // takes care of connecting, managing connections and everything to do with the distributed approach
+    private void onUpdateDistributed(){
+
+
+        if (host){
+            Thread serverThread = new Thread(() -> {
+                Server server = new Server(particleCoordinates);
+                server.run();
+            });
+            serverThread.start();
+        }
+        else {
+            new Thread(new Client()).start();
+        }
+    }
+
     // takes care of updating the particles for the parallel version
     private void onUpdateParallel(){
 
@@ -551,8 +629,10 @@ public class Fluid2D extends Application {
                 }
             }
 
+        CyclicBarrier barrier = new CyclicBarrier(num_threads);
+
         for (int i = 0; i < points.length; i++) {
-            Segment segment = new Segment(points[i],grid);
+            Segment segment = new Segment(points[i],grid,barrier);
             executorService.submit(segment);
         }
 

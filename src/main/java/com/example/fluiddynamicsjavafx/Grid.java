@@ -2,19 +2,21 @@ package com.example.fluiddynamicsjavafx;
 
 import com.example.fluiddynamicsjavafx.Particle;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Grid {
-    private HashMap<String, List<Particle>> grid;
+    private ConcurrentHashMap<String, List<Particle>> grid;
     private int size;
     private double range;
     private int nrange;
 
     public Grid(int size, double range) {
-        this.grid = new HashMap<>();
+        this.grid = new ConcurrentHashMap<>();
         this.size = size;
         this.range = range;
         this.nrange = (int) Math.round(range / size);
@@ -26,7 +28,12 @@ public class Grid {
         if (this.grid.get(key) == null){
             this.grid.put(key,new ArrayList<Particle>());
         }
-        this.grid.get(key).add(p);
+        //System.out.println(this.grid.get(key));
+        try{
+            this.grid.get(key).add(p);
+        } catch (Exception e) {
+            System.out.println(key+" "+p+", "+e);
+        }
     }
 
     public ArrayList<Particle> GetNeighbors(Particle particle){

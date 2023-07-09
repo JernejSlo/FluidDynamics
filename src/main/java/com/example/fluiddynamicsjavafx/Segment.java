@@ -3,13 +3,16 @@ package com.example.fluiddynamicsjavafx;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 
 public class Segment extends Thread{
+    private final CyclicBarrier barrier;
     List<Particle> particles;
     Grid grid;
-    public Segment(List<Particle> particles, Grid grid){
+    public Segment(List<Particle> particles, Grid grid, CyclicBarrier barrier){
         this.particles = particles;
         this.grid = grid;
+        this.barrier = barrier;
     }
 
     public void run(){
@@ -18,6 +21,13 @@ public class Segment extends Thread{
             Fluid2D.neighbors[particle.id] = (Fluid2D.grid.GetNeighbors(particle));
         }
 
+        try {
+            barrier.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (BrokenBarrierException e) {
+            e.printStackTrace();
+        }
 
         for (int i = 0; i < particles.size(); i++) {
             Particle currParticle = particles.get(i);
