@@ -33,10 +33,12 @@ public class Fluid2D extends Application {
     public static int SCREEN_HEIGHT = 800;
 
     // enable distributed mode
+    // to simulate start the server with Fluid2D and a client with test and client
     public boolean distributed = false;
     public boolean host = true;
     public static String hostAddress = "127.0.0.1";
     public static int hostPort = 9999;
+
     public static double prev = System.nanoTime();
     public static double[] all = {0,0};
 
@@ -73,7 +75,7 @@ public class Fluid2D extends Application {
 
 
     public static int PARTICLE_RADIUS = 8;
-    public static int NUM_PARTICLES = 4000;
+    public static int NUM_PARTICLES = 2000;
     protected static ArrayList<Particle> [] neighbors = new ArrayList[NUM_PARTICLES];
     double[] startVector = {500,-200};
 
@@ -116,6 +118,7 @@ public class Fluid2D extends Application {
 
     // The coefficient of restitution for the vectors
     public static final double COR = 0.9;
+    private boolean started = false;
 
     @Override
     public void start(Stage stage) throws IOException {
@@ -293,12 +296,6 @@ public class Fluid2D extends Application {
         }
     }
 
-    public double W(Particle i, Particle j, double h) {
-        double r = Math.sqrt(i.distance(j));
-        double q = r / h;
-        return (1 / (Math.PI * Math.pow(h, 2))) * Math.exp(-0.5 * Math.pow(q, 2));
-    }
-
     public static void calculateDensity(Particle currParticle){
         ArrayList collisions = neighbors[currParticle.id];
         double [] pl = currParticle.getCoords_();
@@ -319,14 +316,6 @@ public class Fluid2D extends Application {
         currParticle.setPressure(pressure);
     }
 
-    public double[] normalize(double[] vector){
-        double magnitude = Math.sqrt(vector[0]*vector[0] + vector[1]*vector[1]);
-        double[] normalizedVector = {vector[0]/magnitude, vector[1]/magnitude};
-
-
-
-        return normalizedVector;
-    }
     public static double [] sub(double[] vector, double[] subtract){
         double [] subbedVector = new double[2];
 
@@ -351,22 +340,6 @@ public class Fluid2D extends Application {
 
         return mulVector;
     }
-    public double [] vecmul(double [] vector1,double [] vector2){
-        double [] mulVector = new double[2];
-
-        mulVector[0] = vector1[0]*vector2[0];
-        mulVector[1] = vector1[1]*vector2[1];
-
-        return mulVector;
-    }
-    public double [] pow(double [] vector1,double pow){
-        double [] mulVector = new double[2];
-
-        mulVector[0] = Math.pow(vector1[0],pow);
-        mulVector[1] = Math.pow(vector1[1],pow);
-
-        return mulVector;
-    }
     public static double [] div(double[] vector1, double scalar){
         double [] divVector = new double[2];
 
@@ -374,12 +347,6 @@ public class Fluid2D extends Application {
         divVector[1] = vector1[1]/scalar;
 
         return divVector;
-    }
-    public double dot(double [] vector1,double [] vector2){
-
-        double dotProduct = (vector1[0]* vector2[0]) + (vector1[1]* vector2[1]);
-
-        return dotProduct;
     }
 
     public static void calculateForces(Particle currParticle) {
@@ -414,12 +381,6 @@ public class Fluid2D extends Application {
         }
 
         velocity = add(add(pressureForce,viscousForce),CONSTANT_FORCE);
-        /*System.out.println(velocity[0]+ ", " + velocity[1]);
-        System.out.println(currParticle.getDensity());
-        System.out.println(currParticle.getPressure());
-        System.out.println();
-
-         */
 
         double [] velocityCalculated = add(currentVelocity, div(mul(velocity,timeStep),currParticle.getDensity()));
         newForces[currParticle.id] = velocityCalculated;
@@ -485,21 +446,10 @@ public class Fluid2D extends Application {
             particles.get(p.id).setRadius(p.getRadius());
         }
 
-
-        // test
-        /*for (KdTree.Node p : neighbors[0]){
-            particles.get(p.id).setColor(Color.WHITE);
-            for (KdTree.Node n : neighbors[p.id]){
-                particles.get(n.id).setColor(Color.YELLOW);
-            }
-        }
-
-         */
         grid = new Grid(size,smoothingLength);
         for (Particle p : particleCoordinates){
             grid.Insert(p);
         }
-        //System.out.println("Updated particle positions");
 
     }
     // updates the positions of the particles on screen and takes care of adding new particles for emmiter
@@ -526,18 +476,6 @@ public class Fluid2D extends Application {
 
 
         }
-
-
-
-        // test
-        /*for (KdTree.Node p : neighbors[0]){
-            particles.get(p.id).setColor(Color.WHITE);
-            for (KdTree.Node n : neighbors[p.id]){
-                particles.get(n.id).setColor(Color.YELLOW);
-            }
-        }
-
-         */
 
         emmitCounter++;
         if (particleCoordinates.size() < NUM_PARTICLES-emmitParticlesNum  && emmitCounter > waitBetweenEmits) {
@@ -598,17 +536,20 @@ public class Fluid2D extends Application {
     // takes care of connecting, managing connections and everything to do with the distributed approach
     private void onUpdateDistributed(){
 
+        if (!started){
+            if (host){
+                Thread serverThread = new Thread(() -> {
+                    Server server = new Server(particleCoordinates);
+                    server.run();
+                });
+                serverThread.start();
+                started = true;
+            }
+            else {
+                new Thread(new Client()).start();
+            }
+        }
 
-        if (host){
-            Thread serverThread = new Thread(() -> {
-                Server server = new Server(particleCoordinates);
-                server.run();
-            });
-            serverThread.start();
-        }
-        else {
-            new Thread(new Client()).start();
-        }
     }
 
     // takes care of updating the particles for the parallel version
@@ -647,31 +588,6 @@ public class Fluid2D extends Application {
             neighbors[particleCoordinate.id] = grid.GetNeighbors(particleCoordinate);
 
         }
-        /*System.out.println("showing neigbors for " + particleCoordinates.get(0));
-        for (Particle p : neighbors[0]) {
-            System.out.println("Distance: " + getDistance(particleCoordinates.get(0).coords_[0],particleCoordinates.get(0).coords_[1],p.coords_[0],p.coords_[1]));
-            System.out.println(p);
-        }
-        System.out.println("_________________________________________________________________________________");
-
-         */
-
-        // temporary checker
-        /*for (KdTree.Node particleCoordinate : particleCoordinates) {
-            ArrayList<KdTree.Node> neigboursNew = new ArrayList<>();
-            double [] coords = particleCoordinate.getCoords_();
-            for (KdTree.Node particleCoordinate2 : particleCoordinates) {
-                double [] coords2 = particleCoordinate2.getCoords_();
-                if (particleCoordinate.id != particleCoordinate2.id){
-                    if (getDistance(coords[0],coords[1],coords2[0],coords2[1]) <= smoothingLength ){
-                        neigboursNew.add(particleCoordinate2);
-                    }
-                }
-                neighbors[particleCoordinate.id] = neigboursNew;
-            }
-        }
-
-         */
 
         for (int i = 0; i < size_; i++) {
             if (simulateDamBreak){

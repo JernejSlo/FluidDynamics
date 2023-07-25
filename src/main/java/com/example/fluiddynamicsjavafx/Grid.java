@@ -1,9 +1,5 @@
 package com.example.fluiddynamicsjavafx;
 
-import com.example.fluiddynamicsjavafx.Particle;
-
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,7 +24,6 @@ public class Grid {
         if (this.grid.get(key) == null){
             this.grid.put(key,new ArrayList<Particle>());
         }
-        //System.out.println(this.grid.get(key));
         try{
             this.grid.get(key).add(p);
         } catch (Exception e) {

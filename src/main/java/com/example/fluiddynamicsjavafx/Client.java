@@ -93,6 +93,7 @@ public class Client implements Runnable{
 
                 }
                 else if (inMessage.startsWith("/update ")){
+                    // update the particles
                     set_particles(data);
                 }
                 else {
@@ -146,7 +147,6 @@ public class Client implements Runnable{
     }
 
     public List<Particle> calculateSegment(List<Particle> particles){
-        //System.out.println(this.getId() + "is checking a array of the size " + particles.size());
         if (Fluid2D.grid == null){
             Fluid2D.grid = new Grid(Fluid2D.size,Fluid2D.smoothingLength);
             for (Particle p : particles){
@@ -181,6 +181,7 @@ public class Client implements Runnable{
             Particle currParticle = particles.get(i);
             currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
         }
+
 
         for (Particle currParticle : particles){
             currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);

@@ -16,7 +16,6 @@ public class Segment extends Thread{
     }
 
     public void run(){
-        //System.out.println(this.getId() + "is checking a array of the size " + particles.size());
         for(Particle particle : particles){
             Fluid2D.neighbors[particle.id] = (Fluid2D.grid.GetNeighbors(particle));
         }
@@ -60,14 +59,6 @@ public class Segment extends Thread{
 
         List<Double> curvatureValues = Fluid2D.findCurves(surfaceParticles, normalVectors);
 
-        /*for (int i = 0;i < surfaceParticles.size();i++) {
-            double[] force = Fluid2D.calculateSurfaceTensionForce( curvatureValues.get(i),normalVectors.get(i),0.02, surfaceParticles.get(i).getPressure());
-            if (Fluid2D.add(surfaceParticles.get(i).getVelocity(),force)[1]+"" != "NaN") {
-                surfaceParticles.get(i).setVelocity(Fluid2D.add(surfaceParticles.get(i).getVelocity(),force));
-            }
-        }
-
-         */
         for (Particle currParticle : particles){
             currParticle.setVelocity(Fluid2D.newForces[currParticle.id]);
             currParticle.setCoords_(Fluid2D.add(currParticle.getCoords_(), Fluid2D.mul(currParticle.getVelocity(),Fluid2D.timeStep)));

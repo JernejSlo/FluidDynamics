@@ -153,7 +153,6 @@ public class Server implements Runnable{
 
                 while((message = in.readLine()) != null){
                     if (message.startsWith("/wd")){
-                        //System.out.println("data from "+ id +" has been sent from client to server!");
                         calculated.set(id, true);
                         String[] data = message.split(" ");
                         if (done()){
@@ -163,9 +162,6 @@ public class Server implements Runnable{
                             broadcast("/update " + particleCoordinates);
                             broadcastI("/calculate",""+calculated.size());
                         }
-                        // zapiši podatke
-                        // preveri če je calculated cel končan in ga spremeni na false
-                        // pošlji komando da zračunajo naslednji del
                     }
                     else if (message.startsWith("/disconnect")){
                         System.out.println("A client has disconnected");
@@ -176,7 +172,6 @@ public class Server implements Runnable{
                         }
                     }
                     else{
-                        //HUH? ni komande pac
                         System.out.println("Client sent invalid message. " + message);
                     }
                 }
